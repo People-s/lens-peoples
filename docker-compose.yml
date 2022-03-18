@@ -4,7 +4,7 @@ services:
   contracts-env:
     security_opt:
       - no-new-privileges
-    user: "${USERID?}:${USERID?}"
+    user: root:root
     env_file:
       - .env
     build:
@@ -14,7 +14,7 @@ services:
     volumes:
       - ./:/src:rw
       - $HOME/.tenderly/config.yaml:/root/.tenderly/config.yaml:ro
-    #environment:
+      #environment:
       #- MNEMONIC=
       #- ETHERSCAN_KEY=
       #- INFURA_KEY=

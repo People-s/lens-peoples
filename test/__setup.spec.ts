@@ -1,4 +1,4 @@
-import { AbiCoder } from '@ethersproject/contracts/node_modules/@ethersproject/abi';
+import { AbiCoder } from '@ethersproject/abi';
 import { parseEther } from '@ethersproject/units';
 import '@nomiclabs/hardhat-ethers';
 import { expect, use } from 'chai';
@@ -37,15 +37,19 @@ import {
   MockReferenceModule__factory,
   ModuleGlobals,
   ModuleGlobals__factory,
-  ProfileTokenURILogic__factory,
   PublishingLogic__factory,
   RevertCollectModule,
   RevertCollectModule__factory,
   TimedFeeCollectModule,
   TimedFeeCollectModule__factory,
   TransparentUpgradeableProxy__factory,
-  LensPeripheryDataProvider,
-  LensPeripheryDataProvider__factory,
+  // Peoples modules
+
+  RequiredCurrencyNFTFollowModule__factory,
+  RequiredCurrencyNFTFollowModule,
+  NFTMock,
+  NFTMock__factory
+
 } from '../typechain-types';
 import { LensHubLibraryAddresses } from '../typechain-types/factories/LensHub__factory';
 import { FAKE_PRIVATEKEY, ZERO_ADDRESS } from './helpers/constants';
@@ -62,29 +66,27 @@ export const CURRENCY_MINT_AMOUNT = parseEther('100');
 export const BPS_MAX = 10000;
 export const TREASURY_FEE_BPS = 50;
 export const REFERRAL_FEE_BPS = 250;
-export const MAX_PROFILE_IMAGE_URI_LENGTH = 6000;
 export const LENS_HUB_NFT_NAME = 'Lens Profiles';
 export const LENS_HUB_NFT_SYMBOL = 'LENS';
 export const MOCK_PROFILE_HANDLE = 'plant1ghost.eth';
-export const PERIPHERY_DATA_PROVIDER_NAME = 'LensPeripheryDataProvider';
 export const FIRST_PROFILE_ID = 1;
-export const MOCK_URI = 'https://ipfs.io/ipfs/QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR';
-export const OTHER_MOCK_URI = 'https://ipfs.io/ipfs/QmSfyMcnh1wnJHrAWCBjZHapTS859oNSsuDFiAPPdAHgHP';
-export const MOCK_PROFILE_URI =
-  'https://ipfs.io/ipfs/Qme7ss3ARVgxv6rXqVPiikMJ8u2NLgmgszg13pYrDKEoiu';
-export const MOCK_FOLLOW_NFT_URI =
+export const MOCK_URI =
+  'https://ipfs.fleek.co/ipfs/plantghostplantghostplantghostplantghostplantghostplantghos';
+export const OTHER_MOCK_URI =
   'https://ipfs.fleek.co/ipfs/ghostplantghostplantghostplantghostplantghostplantghostplan';
+export const MOCK_PROFILE_URI =
+  'https://ipfs.fleek.co/ipfs/runningoutofthingstowriterunningoutofthingstowriterunningou';
+export const MOCK_FOLLOW_NFT_URI =
+  'https://ipfs.fleek.co/ipfs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 export let accounts: Signer[];
 export let deployer: Signer;
 export let user: Signer;
 export let userTwo: Signer;
-export let userThree: Signer;
 export let governance: Signer;
 export let deployerAddress: string;
 export let userAddress: string;
 export let userTwoAddress: string;
-export let userThreeAddress: string;
 export let governanceAddress: string;
 export let followNFTImplAddress: string;
 export let collectNFTImplAddress: string;
@@ -99,7 +101,6 @@ export let hubLibs: LensHubLibraryAddresses;
 export let eventsLib: Events;
 export let moduleGlobals: ModuleGlobals;
 export let helper: Helper;
-export let peripheryDataProvider: LensPeripheryDataProvider;
 
 /* Modules */
 
@@ -115,6 +116,11 @@ export let limitedTimedFeeCollectModule: LimitedTimedFeeCollectModule;
 export let approvalFollowModule: ApprovalFollowModule;
 export let feeFollowModule: FeeFollowModule;
 export let mockFollowModule: MockFollowModule;
+
+// Peoples modules
+
+export let requiredCurrencyNFTFollowModule: RequiredCurrencyNFTFollowModule;
+export let nftmock: NFTMock;
 
 // Reference
 export let followerOnlyReferenceModule: FollowerOnlyReferenceModule;
@@ -139,13 +145,10 @@ before(async function () {
   deployer = accounts[0];
   user = accounts[1];
   userTwo = accounts[2];
-  userThree = accounts[4];
   governance = accounts[3];
-
   deployerAddress = await deployer.getAddress();
   userAddress = await user.getAddress();
   userTwoAddress = await userTwo.getAddress();
-  userThreeAddress = await userThree.getAddress();
   governanceAddress = await governance.getAddress();
   treasuryAddress = await accounts[4].getAddress();
   mockModuleData = abiCoder.encode(['uint256'], [1]);
@@ -158,12 +161,9 @@ before(async function () {
   );
   const publishingLogic = await new PublishingLogic__factory(deployer).deploy();
   const interactionLogic = await new InteractionLogic__factory(deployer).deploy();
-  const profileTokenURILogic = await new ProfileTokenURILogic__factory(deployer).deploy();
   hubLibs = {
     'contracts/libraries/PublishingLogic.sol:PublishingLogic': publishingLogic.address,
     'contracts/libraries/InteractionLogic.sol:InteractionLogic': interactionLogic.address,
-    'contracts/libraries/ProfileTokenURILogic.sol:ProfileTokenURILogic':
-      profileTokenURILogic.address,
   };
 
   // Here, we pre-compute the nonces and addresses used to deploy the contracts.
@@ -197,13 +197,12 @@ before(async function () {
   // Connect the hub proxy to the LensHub factory and the user for ease of use.
   lensHub = LensHub__factory.connect(proxy.address, user);
 
-  // LensPeripheryDataProvider
-  peripheryDataProvider = await new LensPeripheryDataProvider__factory(deployer).deploy(
-    lensHub.address
-  );
-
   // Currency
   currency = await new Currency__factory(deployer).deploy();
+
+  // NFT Peoples Mock  
+  nftmock = await new NFTMock__factory(deployer).deploy();
+
 
   // Modules
   emptyCollectModule = await new EmptyCollectModule__factory(deployer).deploy(lensHub.address);
@@ -234,6 +233,10 @@ before(async function () {
     lensHub.address
   );
 
+  // Peoples modules
+  requiredCurrencyNFTFollowModule = await new RequiredCurrencyNFTFollowModule__factory(deployer).deploy(lensHub.address);
+
+
   mockFollowModule = await new MockFollowModule__factory(deployer).deploy();
   mockReferenceModule = await new MockReferenceModule__factory(deployer).deploy();
 
@@ -243,9 +246,6 @@ before(async function () {
   ).to.not.be.reverted;
   await expect(
     lensHub.connect(governance).whitelistProfileCreator(userTwoAddress, true)
-  ).to.not.be.reverted;
-  await expect(
-    lensHub.connect(governance).whitelistProfileCreator(userThreeAddress, true)
   ).to.not.be.reverted;
   await expect(
     lensHub.connect(governance).whitelistProfileCreator(testWallet.address, true)

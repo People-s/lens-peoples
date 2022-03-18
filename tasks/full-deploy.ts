@@ -20,8 +20,10 @@ import {
   RevertCollectModule__factory,
   TimedFeeCollectModule__factory,
   TransparentUpgradeableProxy__factory,
-  ProfileTokenURILogic__factory,
-  LensPeripheryDataProvider__factory,
+  /// Project modules 
+  RequiredCurrencyNFTFollowModule__factory
+
+
 } from '../typechain-types';
 import { deployContract, waitForTx } from './helpers/utils';
 
@@ -29,7 +31,7 @@ const TREASURY_FEE_BPS = 50;
 const LENS_HUB_NFT_NAME = 'Various Vegetables';
 const LENS_HUB_NFT_SYMBOL = 'VVGT';
 
-task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre) => {
+task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({ }, hre) => {
   // Note that the use of these signers is a placeholder and is not meant to be used in
   // production.
   const ethers = hre.ethers;
@@ -59,14 +61,9 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
   const interactionLogic = await deployContract(
     new InteractionLogic__factory(deployer).deploy({ nonce: deployerNonce++ })
   );
-  const profileTokenURILogic = await deployContract(
-    new ProfileTokenURILogic__factory(deployer).deploy({ nonce: deployerNonce++ })
-  );
   const hubLibs = {
     'contracts/libraries/PublishingLogic.sol:PublishingLogic': publishingLogic.address,
     'contracts/libraries/InteractionLogic.sol:InteractionLogic': interactionLogic.address,
-    'contracts/libraries/ProfileTokenURILogic.sol:ProfileTokenURILogic':
-      profileTokenURILogic.address,
   };
 
   // Here, we pre-compute the nonces and addresses used to deploy the contracts.
@@ -79,8 +76,7 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
     '0x' + keccak256(RLP.encode([deployer.address, followNFTNonce])).substr(26);
   const collectNFTImplAddress =
     '0x' + keccak256(RLP.encode([deployer.address, collectNFTNonce])).substr(26);
-  const hubProxyAddress =
-    '0x' + keccak256(RLP.encode([deployer.address, hubProxyNonce])).substr(26);
+  const hubProxyAddress = '0x' + keccak256(RLP.encode([deployer.address, hubProxyNonce])).substr(26);
 
   // Next, we deploy first the hub implementation, then the followNFT implementation, the collectNFT, and finally the
   // hub proxy with initialization.
@@ -119,11 +115,6 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
 
   // Connect the hub proxy to the LensHub factory and the governance for ease of use.
   const lensHub = LensHub__factory.connect(proxy.address, governance);
-
-  const peripheryDataProvider = await new LensPeripheryDataProvider__factory(deployer).deploy(
-    lensHub.address,
-    { nonce: deployerNonce++ }
-  );
 
   // Currency
   console.log('\n\t-- Deploying Currency --');
@@ -175,10 +166,21 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
       nonce: deployerNonce++,
     })
   );
+
+
   console.log('\n\t-- Deploying approvalFollowModule --');
   const approvalFollowModule = await deployContract(
     new ApprovalFollowModule__factory(deployer).deploy(lensHub.address, { nonce: deployerNonce++ })
   );
+
+
+  // Follow modules Peoples project ///
+  console.log('\n\t-- Deploying  requiredCurrencyNFTFollowModule --');
+  const requiredCurrencyNFTFollowModule = await deployContract(
+    new RequiredCurrencyNFTFollowModule__factory(deployer).deploy(lensHub.address, { nonce: deployerNonce++ })
+  );
+
+
 
   // Deploy reference module
   console.log('\n\t-- Deploying followerOnlyReferenceModule --');
@@ -200,9 +202,7 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
     })
   );
   await waitForTx(
-    lensHub.whitelistCollectModule(timedFeeCollectModule.address, true, {
-      nonce: governanceNonce++,
-    })
+    lensHub.whitelistCollectModule(timedFeeCollectModule.address, true, { nonce: governanceNonce++ })
   );
   await waitForTx(
     lensHub.whitelistCollectModule(limitedTimedFeeCollectModule.address, true, {
@@ -224,6 +224,15 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
   await waitForTx(
     lensHub.whitelistFollowModule(approvalFollowModule.address, true, { nonce: governanceNonce++ })
   );
+
+  // Whitelist follows module Peoples project
+
+  await waitForTx(
+    lensHub.whitelistFollowModule(requiredCurrencyNFTFollowModule.address, true, { nonce: governanceNonce++ })
+  );
+
+
+
 
   // Whitelist the reference module
   console.log('\n\t-- Whitelisting Reference Module --');
@@ -250,7 +259,6 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
     'follow NFT impl': followNFTImplAddress,
     'collect NFT impl': collectNFTImplAddress,
     currency: currency.address,
-    'periphery data provider': peripheryDataProvider.address,
     'module globals': moduleGlobals.address,
     'fee collect module': feeCollectModule.address,
     'limited fee collect module': limitedFeeCollectModule.address,
@@ -261,6 +269,8 @@ task('full-deploy', 'deploys the entire Lens Protocol').setAction(async ({}, hre
     'fee follow module': feeFollowModule.address,
     'approval follow module': approvalFollowModule.address,
     'follower only reference module': followerOnlyReferenceModule.address,
+    'Peoples addresses': "-------",
+    'Required Currency / NFT Follow Module': requiredCurrencyNFTFollowModule.address
   };
   const json = JSON.stringify(addrs, null, 2);
   console.log(json);

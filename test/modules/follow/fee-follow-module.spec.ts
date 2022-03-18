@@ -1,4 +1,4 @@
-import { BigNumber } from '@ethersproject/contracts/node_modules/@ethersproject/bignumber';
+import { BigNumber } from '@ethersproject/bignumber';
 import { parseEther } from '@ethersproject/units';
 import '@nomiclabs/hardhat-ethers';
 import { expect } from 'chai';
@@ -139,7 +139,7 @@ makeSuiteCleanRoom('Fee Follow Module', function () {
         );
         await expect(
           lensHub.connect(userTwo).follow([FIRST_PROFILE_ID], [data])
-        ).to.be.revertedWith(ERRORS.ERC20_INSUFFICIENT_ALLOWANCE);
+        ).to.be.revertedWith(ERRORS.ERC20_TRANSFER_EXCEEDS_ALLOWANCE);
       });
     });
   });
