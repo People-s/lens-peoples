@@ -8,8 +8,6 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import 'hardhat/console.sol';
 
 contract RequiredCurrencyNFTFollowModule is IFollowModule, FollowValidatorFollowModuleBase {
-    error PasscodeInvalid();
-
     mapping(uint256 => uint256) internal NFTReqAmount;
 
     mapping(uint256 => uint256) internal ERC20ReqAmount;
@@ -34,7 +32,7 @@ contract RequiredCurrencyNFTFollowModule is IFollowModule, FollowValidatorFollow
         console.log('NFTAddress', NFTAddress);
         console.log('NFTAmount', NFTAmount);
         console.log('ERC20Address', ERC20Address);
-        console.log('ERC20AmountAmount', ERC20Amount);
+        console.log('NFTERC20AmountAmount', ERC20Amount);
 
         if (NFTAmount != 0) {
             NFTReqAmount[profileId] = NFTAmount;
